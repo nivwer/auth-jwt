@@ -1,6 +1,8 @@
 using System.Text;
 using JwtAuthAPI.Data;
 using JwtAuthAPI.Data.Interfaces;
+using JwtAuthAPI.Services;
+using JwtAuthAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -12,6 +14,7 @@ var connectionString = builder.Configuration.GetConnectionString("Default");
 builder.Services.AddDbContext<DataContext>(options => options.UseSqlite(connectionString));
 
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IJwtService, JwtService>();
 
 // Add services to the container.
 

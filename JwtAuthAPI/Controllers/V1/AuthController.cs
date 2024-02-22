@@ -1,17 +1,30 @@
+using System.IdentityModel.Tokens.Jwt;
 using JwtAuthAPI.Data.Interfaces;
 using JwtAuthAPI.Dtos;
 using JwtAuthAPI.Models;
+using JwtAuthAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JwtAuthAPI.Controllers.V1;
 
 [Route("api/auth")]
 [ApiController]
-public class AuthController(ILogger<AuthController> logger, IAuthRepository authRepository)
-    : ControllerBase
+public class AuthController : ControllerBase
 {
-    private readonly ILogger<AuthController> _logger = logger;
-    private readonly IAuthRepository _repo = authRepository;
+    private readonly ILogger<AuthController> _logger;
+    private readonly IAuthRepository _repo;
+    private readonly IJwtService _jwt;
+
+    public AuthController(
+        ILogger<AuthController> logger,
+        IAuthRepository authRepository,
+        IJwtService jwt
+    )
+    {
+        _logger = logger;
+        _repo = authRepository;
+        _jwt = jwt;
+    }
 
     [HttpPost("register")]
     public async Task<ActionResult> Register([FromBody] UserRegisterDto model)
@@ -48,8 +61,8 @@ public class AuthController(ILogger<AuthController> logger, IAuthRepository auth
 
         // Generar y devolver token JWT aquí...
 
-        // return Ok(new { Token = "your_generated_jwt_token" });
+        var token = _jwt.CreateToken(user);
 
-        return Ok(user);
+        return Ok(new { Token = new JwtSecurityTokenHandler().WriteToken(token) });
     }
 }
