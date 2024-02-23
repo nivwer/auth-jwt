@@ -2,8 +2,5 @@ namespace JwtAuthAPI.Dtos;
 
 public class JwtDto
 {
-    public required string Key { get; set; }
-    public required string Issuer { get; set; }
-    public required string Audience { get; set; }
-    public required string Subject { get; set; }
+    public required string SecretKey { get; set; }
 }

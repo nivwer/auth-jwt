@@ -10,41 +10,65 @@ namespace JwtAuthAPI.Services;
 
 public class JwtService : IJwtService
 {
-    private IConfiguration _config;
+    private readonly IConfiguration _config;
 
     public JwtService(IConfiguration configuration)
     {
         _config = configuration;
     }
 
-    public JwtSecurityToken CreateToken(User user)
+    public string CreateToken(User user)
     {
         var jwt = _config.GetSection("Jwt").Get<JwtDto>();
 
         if (jwt == null)
         {
-            throw new ApplicationException("No valid configurations found for Jwt.");
+            string message = "No valid configurations found for Jwt.";
+            throw new ApplicationException(message);
         }
 
-        var claims = new[]
+        var tokenHandler = new JwtSecurityTokenHandler();
+
+        var tokenDescriptor = new SecurityTokenDescriptor
         {
-            new Claim(JwtRegisteredClaimNames.Sub, jwt.Subject),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.ToString()),
-            new Claim("id", user.Id.ToString()),
+            Subject = new ClaimsIdentity(
+                new Claim[]
+                {
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                    new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.ToString()),
+                    new Claim("id", user.Id.ToString()),
+                }
+            ),
+
+            Expires = DateTime.UtcNow.AddMinutes(5),
+
+            SigningCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SecretKey)),
+                SecurityAlgorithms.HmacSha256Signature
+            )
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key));
-        var login = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var token = tokenHandler.CreateToken(tokenDescriptor);
 
-        var token = new JwtSecurityToken(
-            jwt.Issuer,
-            jwt.Audience,
-            claims,
-            expires: DateTime.Now.AddMinutes(5),
-            signingCredentials: login
-        );
+        return tokenHandler.WriteToken(token);
+    }
 
-        return token;
+    public int ValidateToken(ClaimsIdentity identity)
+    {
+        if (!identity.Claims.Any())
+        {
+            string message = "The identity has no claims.";
+            throw new InvalidOperationException(message);
+        }
+
+        var id = identity.Claims.FirstOrDefault(x => x.Type == "id")?.Value;
+
+        if (id == null)
+        {
+            string message = "The 'id' claim is not present in the identity or is null.";
+            throw new InvalidOperationException(message);
+        }
+
+        return Int32.Parse(id);
     }
 }

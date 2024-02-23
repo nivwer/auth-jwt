@@ -7,22 +7,25 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace JwtAuthAPI.Controllers.V1;
 
-[Route("api/auth")]
+[Route("api/")]
 [ApiController]
 public class AuthController : ControllerBase
 {
     private readonly ILogger<AuthController> _logger;
     private readonly IAuthRepository _repo;
+    private readonly IUserRepository _userRepository;
     private readonly IJwtService _jwt;
 
     public AuthController(
         ILogger<AuthController> logger,
         IAuthRepository authRepository,
+        IUserRepository userRepository,
         IJwtService jwt
     )
     {
         _logger = logger;
         _repo = authRepository;
+        _userRepository = userRepository;
         _jwt = jwt;
     }
 
@@ -34,14 +37,23 @@ public class AuthController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        if (await _repo.UserExists(model.Username))
+        if (await _userRepository.UserExists(model.Username))
         {
-            return BadRequest("Username is already taken");
+            string message = "Username is already taken";
+            return BadRequest(message);
         }
 
         User user = await _repo.Register(model);
 
-        return Created();
+        if (user == null)
+        {
+            string message = "Error occurred during user registration.";
+            return BadRequest(message);
+        }
+
+        var token = _jwt.CreateToken(user);
+
+        return Ok(new { Token = token });
     }
 
     [HttpPost("login")]
@@ -56,13 +68,12 @@ public class AuthController : ControllerBase
 
         if (user == null)
         {
-            return Unauthorized("Invalid username or password");
+            string message = "Invalid username or password";
+            return Unauthorized(message);
         }
-
-        // Generar y devolver token JWT aquí...
 
         var token = _jwt.CreateToken(user);
 
-        return Ok(new { Token = new JwtSecurityTokenHandler().WriteToken(token) });
+        return Ok(new { Token = token });
     }
 }

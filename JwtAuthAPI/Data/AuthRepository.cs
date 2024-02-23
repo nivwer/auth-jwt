@@ -42,11 +42,6 @@ public class AuthRepository(DataContext context) : IAuthRepository
         return user;
     }
 
-    public async Task<bool> UserExists(string Username)
-    {
-        return await _context.Users.AnyAsync(x => x.Username == Username);
-    }
-
     private static byte[] GenerateSalt()
     {
         byte[] salt = new byte[16];

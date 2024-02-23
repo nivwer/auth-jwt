@@ -3,50 +3,59 @@ using JwtAuthAPI.Data;
 using JwtAuthAPI.Data.Interfaces;
 using JwtAuthAPI.Services;
 using JwtAuthAPI.Services.Interfaces;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
+// Builder
 var builder = WebApplication.CreateBuilder(args);
 
-// SqLite DB
-var connectionString = builder.Configuration.GetConnectionString("Default");
-builder.Services.AddDbContext<DataContext>(options => options.UseSqlite(connectionString));
+// Database settings (SqLite)
+builder.Services.AddDbContext<DataContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("Default"))
+);
 
+// Scopes settings
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 
-// Add services to the container.
-
+// Controllers settings
 builder.Services.AddControllers();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Jwt settings
+// JSON Web Tokens settings (JWT)
+builder.Services.AddAuthorization();
 builder
-    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .Services.AddAuthentication("Bearer")
     .AddJwtBearer(options =>
     {
-        string? jwtKey = builder.Configuration["Jwt:Key"];
+        string? SecretKey = builder.Configuration["Jwt:SecretKey"];
 
-        if (string.IsNullOrEmpty(jwtKey))
-            throw new InvalidOperationException("JWT key is not set correctly.");
+        if (string.IsNullOrEmpty(SecretKey))
+        {
+            string message = "JWT SecretKey is not set correctly.";
+            throw new InvalidOperationException(message);
+        }
 
-        options.TokenValidationParameters =
-            new Microsoft.IdentityModel.Tokens.TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                ValidAudience = builder.Configuration["Jwt:Audience"],
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-            };
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SecretKey));
+        var signingCredentials = new SigningCredentials(
+            signingKey,
+            SecurityAlgorithms.HmacSha256Signature
+        );
+
+        options.RequireHttpsMetadata = false;
+        options.TokenValidationParameters = new TokenValidationParameters()
+        {
+            ValidateAudience = false,
+            ValidateIssuer = false,
+            IssuerSigningKey = signingKey,
+        };
     });
 
+// Build
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -59,7 +68,6 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
-
 app.UseAuthorization();
 
 app.MapControllers();
